@@ -1,0 +1,61 @@
+# --------------------------
+# LaTeX build artifacts
+# --------------------------
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.brf
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.pdfsync
+*.snm
+*.synctex.gz
+*.toc
+
+# Indexing files
+*.idx
+*.ilg
+*.ind
+
+# glossary and acronyms
+*.acr
+*.acn
+*.glg
+*.glo
+*.gls
+*.ist
+
+# minted code listings
+_minted-*/
+
+# latexmk intermediate files
+*.run.xml
+
+# xdvipdfmx intermediate files (XeLaTeX)
+*.xdv
+
+# other temp files
+*~ 
+*.bak
+*.backup
+*.tmp
+
+# --------------------------
+# Output directories
+# --------------------------
+/build/*.aux
+/build/*.fls
+/build/*.log
+/build/*.fdb_latexmk
+/out/
+/_*
+
+# --------------------------
+# Editor or IDE config
+# --------------------------
+*.swp
+*~
