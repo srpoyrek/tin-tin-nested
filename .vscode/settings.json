@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "tin_math.h": "c",
+        "tin_types.h": "c",
+        "stdint.h": "c",
+        "stdlib.h": "c",
+        "tin_dense.h": "c",
+        "tin_train.h": "c",
+        "tin_ae.h": "c",
+        "stddef.h": "c",
+        "tt_types.h": "c",
+        "tt_debug.h": "c",
+        "activations.h": "c"
+    }
+}
