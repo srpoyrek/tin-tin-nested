@@ -4,8 +4,12 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/code/tin-tin/types",
-                "${workspaceFolder}/code/tin-tin/utils"
+                "${workspaceFolder}/code/types",
+                "${workspaceFolder}/code/utils",
+                "${workspaceFolder}/code/dense",
+                "${workspaceFolder}/code/tensor_backend",
+                "${workspaceFolder}/code/common",
+                "${workspaceFolder}/code/math"
             ],
             "defines": [
                 "_DEBUG",

@@ -8,4 +8,10 @@ void tt_dense_forward(const tensor_t *w,
                        const tensor_t *x,
                        tensor_t       *y);
 
+void tt_dense_train(tensor_t *w,
+                    const tensor_t *x,
+                    const tensor_t *error_next,
+                    tensor_t *error_prev,
+                    tensor_t *buffer);  /* output */
+
 #endif

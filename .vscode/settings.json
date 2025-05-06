@@ -10,6 +10,7 @@
         "stddef.h": "c",
         "tt_types.h": "c",
         "tt_debug.h": "c",
-        "activations.h": "c"
+        "activations.h": "c",
+        "stdio.h": "c"
     }
 }
