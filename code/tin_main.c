@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "tt_types.h"
+#include "types/tt_types.h"
 
 int main(void)
 {
