@@ -5,7 +5,7 @@
 
 // Backend vtable:
 typedef struct {
-    void (*dense_forward)(const tensor_t*, const tensor_t*, tensor_t*);
+    void (*dense_forward)(const tensor_t*, const tensor_t*, tensor_t*, int32_t*);
     void (*dense_train)(tensor_t*, const tensor_t*, const tensor_t*, tensor_t*, tensor_t*);
 } TensorBackend_t;
 

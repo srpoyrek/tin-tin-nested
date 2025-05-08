@@ -8,7 +8,11 @@
                 "${workspaceFolder}/code/utils",
                 "${workspaceFolder}/code/dense",
                 "${workspaceFolder}/code/tensor_backend",
-                "${workspaceFolder}/code/math"
+                "${workspaceFolder}/code/math",
+                "${workspaceFolder}/code/activations",
+                "${workspaceFolder}/code/debug",
+                "${workspaceFolder}/code/random",
+                "${workspaceFolder}/code/scale"
             ],
             "defines": [
                 "_DEBUG",

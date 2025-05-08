@@ -11,6 +11,8 @@
         "tt_types.h": "c",
         "tt_debug.h": "c",
         "activations.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "tt_math.h": "c",
+        "motor_ae_model.h": "c"
     }
 }

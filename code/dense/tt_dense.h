@@ -4,9 +4,11 @@
 #include "tt_types.h"
 
 /* forward pass:  y = ReLU(W · x)  (Tin‑Tin scaling handled internally) */
-void tt_dense_forward(const tensor_t *w,
-                       const tensor_t *x,
-                       tensor_t       *y);
+void tt_dense_forward(
+    const tensor_t *w,
+    const tensor_t *x,
+    tensor_t *y,
+    int32_t *acc_buf);
 
 void tt_dense_train(tensor_t *w,
                     const tensor_t *x,
