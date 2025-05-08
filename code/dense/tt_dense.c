@@ -9,13 +9,20 @@
 #define LR_SHIFT 8    /* lr = 1 / 256   */
 #define MARGIN   2    /* Algorithm‑3 line 10 */
 
+#define T_LOW   (2 ^ (CHAR_BIT - 1) / 4)
+#define T_HIGH  ((2 ^ (CHAR_BIT - 1) * 7) / 8)
+
+
 static void align_scale(tensor_t *W, tensor_t *G_buffer);
-static inline void activation_function(int32_t * acc_buffer, size_t len, Activation_i8_t func);
+static inline void s_activation_func(int32_t * acc_buffer, size_t len, Activation_i8_t func);
+static inline void s_scale_by_func(int32_t * Y, size_t len, scale_by_t func);
+
 
 /* identical body you wrote before, just inside the new file */
 void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t * acc_buffer) {
     if(!W || !X || !Y || !acc_buffer) return;
     
+    // get the lens
     size_t OUT = Y->len, IN = X->len;
     
     // raw int32 matrix-vector multiplication
@@ -29,35 +36,47 @@ void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t
     int8_t maxv = 0;
     
     for(size_t r = 0; r < OUT; r++) {
-        int8_t v = clip_int8( shift_and_round32(acc_buffer[r],ksh) );
-        Y->data[r]=v;
-        if(abs(v)>maxv) maxv=abs(v);
+        int8_t v = clip_int8( shift_and_round32(acc_buffer[r], ksh));
+        Y->data[r] = v;
+        if(abs(v) > maxv) maxv = abs(v);
     }
 
+    // combine the scales of weights and Activations 
     scale_combine(&Y->s, &W->s, &X->s);
-    scale_shift(&Y->s, - (int8_t)ksh);
 
-    if(maxv<32) {
-        for(size_t r = 0; r < OUT; r++) {
-            Y->data[r]=upscale_4_3(Y->data[r]);
-        }
-        Y->s.U++;
-    } else if(maxv > 112) {
-        for(size_t r = 0; r < OUT; r++) {
-            Y->data[r]=downscale_4_5(Y->data[r]);
-        }
-        Y->s.D++;
+    // shift the scale of Y
+    scale_shift(&Y->s, -(int8_t)ksh);
+
+    if(maxv < T_LOW) {
+        s_scale_by_func(Y, OUT, upscale_4_3);
+        scale_up(&Y->s);           
+    } else if(maxv > T_HIGH) {
+        s_scale_by_func(Y, OUT, downscale_4_5);
+        scale_down(&Y->s);  
     }
+
+#ifdef TENSOR_USE_NESTED
+    scale_rollup(&Y->s);
+#endif
     return;
 }
 
-static inline void activation_function(int32_t *acc, size_t len, Activation_i8_t func) {
+static inline void s_activation_func(int32_t *acc, size_t len, Activation_i8_t func) {
     if(!acc) return;
     for (size_t i = 0; i < len; ++i) {
         acc[i] = func(acc[i]);
     }
     return;
 }
+
+static inline void s_scale_by_func(int32_t * Y, size_t len, scale_by_t func) {
+    if(!Y) return;
+    for (size_t i = 0; i < len; ++i) {
+        Y[i] = func(Y[i]);
+    }
+    return;
+}
+
 
 /* single‑header alignment (Alg 3 lines 1–6) */
 static void align_scale(tensor_t *W, tensor_t *G_buffer)

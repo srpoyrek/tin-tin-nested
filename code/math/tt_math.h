@@ -2,6 +2,8 @@
 #define TT_MATH_H
 #include "tt_types.h"
 
+typedef int8_t (*scale_by_t)(int8_t x);
+
 /* integer helpers ---------------------------------------------------------*/
 int32_t shift_and_round32(int32_t x, uint8_t k);   /* divide by 2^k, nearest */
 int8_t  upscale_4_3(int8_t x);                     /* x *= 4/3, clip */
