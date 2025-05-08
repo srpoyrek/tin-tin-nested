@@ -4,6 +4,10 @@
 #include <math.h>
 #include <stdint.h>
 
+
+typedef int8_t (*Activation_i8_t)(int8_t x);
+
+typedef float (*Activation_flt_t)(float x);
 /*
  * Activation functions for both integer and floating-point use.
  * Static inline for zero overhead.

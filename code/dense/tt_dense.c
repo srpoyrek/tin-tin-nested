@@ -1,5 +1,6 @@
 #include "tt_dense.h"
 #include "tt_math.h"
+#include "matrix.h"
 #include "activations.h"
 #include <stdlib.h>
 #include <string.h>
@@ -9,20 +10,19 @@
 #define MARGIN   2    /* Algorithm‑3 line 10 */
 
 static void align_scale(tensor_t *W, tensor_t *G_buffer);
+static inline void activation_function(int32_t * acc_buffer, size_t len, Activation_i8_t func);
 
 /* identical body you wrote before, just inside the new file */
-void tt_dense_forward(const tensor_t *w, const tensor_t *x, tensor_t *y, int32_t * acc_buffer) {
-    if(!w || !x || !y ) return;
+void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t * acc_buffer) {
+    if(!W || !X || !Y || !acc_buffer) return;
     
-    size_t OUT = y->len, IN = x->len;
+    size_t OUT = Y->len, IN = X->len;
     
-    for(size_t r = 0; r < OUT; r++) {
-        int32_t s = 0;
-        for(size_t c = 0; c < IN; c++) {
-            s += (int32_t)w->data[r*IN+c]*(int32_t)x->data[c];
-        }
-        acc_buffer[r] = relu_i8(s);
-    }
+    // raw int32 matrix-vector multiplication
+    matrix_mul(W, X, acc_buffer);
+
+    // apply ReLU to the int32 accumulators
+    activation_function(acc_buffer, OUT, relu_i8);
 
     uint8_t bw   = eff_bitwidth_array(acc_buffer,OUT);
     uint8_t ksh  = (bw > 8) ? ( bw - 8 ) : 0 ;
@@ -30,24 +30,31 @@ void tt_dense_forward(const tensor_t *w, const tensor_t *x, tensor_t *y, int32_t
     
     for(size_t r = 0; r < OUT; r++) {
         int8_t v = clip_int8( shift_and_round32(acc_buffer[r],ksh) );
-        y->data[r]=v;
+        Y->data[r]=v;
         if(abs(v)>maxv) maxv=abs(v);
     }
 
-    y->s.S = w->s.S + x->s.S - ksh;
-    y->s.U = w->s.U + x->s.U;
-    y->s.D = w->s.D + x->s.D;
+    scale_combine(&Y->s, &W->s, &X->s);
+    scale_shift(&Y->s, - (int8_t)ksh);
 
     if(maxv<32) {
         for(size_t r = 0; r < OUT; r++) {
-            y->data[r]=upscale_4_3(y->data[r]);
+            Y->data[r]=upscale_4_3(Y->data[r]);
         }
-        y->s.U++;
+        Y->s.U++;
     } else if(maxv > 112) {
         for(size_t r = 0; r < OUT; r++) {
-            y->data[r]=downscale_4_5(y->data[r]);
+            Y->data[r]=downscale_4_5(Y->data[r]);
         }
-        y->s.D++;
+        Y->s.D++;
+    }
+    return;
+}
+
+static inline void activation_function(int32_t *acc, size_t len, Activation_i8_t func) {
+    if(!acc) return;
+    for (size_t i = 0; i < len; ++i) {
+        acc[i] = func(acc[i]);
     }
     return;
 }
