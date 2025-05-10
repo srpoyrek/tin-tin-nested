@@ -3,6 +3,7 @@
 #include "tt_types.h"
 
 typedef int8_t (*scale_by_t)(int8_t x);
+typedef int32_t (*shift_round_t)(int32_t x, uint8_t k);
 
 /* integer helpers ---------------------------------------------------------*/
 int32_t shift_and_round32(int32_t x, uint8_t k);   /* divide by 2^k, nearest */

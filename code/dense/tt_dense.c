@@ -1,6 +1,7 @@
 #include "tt_dense.h"
 #include "tt_math.h"
 #include "matrix.h"
+#include "tt_utils.h"
 #include "activations.h"
 #include <stdlib.h>
 #include <string.h>
@@ -15,31 +16,53 @@
 
 static void align_scale(tensor_t *W, tensor_t *G_buffer);
 static inline void s_activation_func(int32_t * acc_buffer, size_t len, Activation_i8_t func);
-static inline void s_scale_by_func(int32_t * Y, size_t len, scale_by_t func);
+static inline void s_scale_by_func(tensor_t * Y, size_t len, scale_by_t func);
+static inline void s_shift_and_round_func(tensor_t * Y, size_t len, shift_round_t func);
+static inline void s_clip_func(tensor_t * Y, size_t len, clip_t func);
+static inline int8_t s_max_abs_value(tensor_t * Y, size_t len);
 
-
-/* identical body you wrote before, just inside the new file */
-void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t * acc_buffer) {
-    if(!W || !X || !Y || !acc_buffer) return;
-    
-    // get the lens
-    size_t OUT = Y->len, IN = X->len;
+/**
+ * @brief Performs a forward pass of a dense (fully connected) layer for tin-tin and tin-tin nested.
+ *
+ * This function implements the forward computation for a dense layer, including
+ * matrix multiplication, activation function application, scaling, shifting,
+ * rounding, clipping, and dynamic range adjustment based on the output values.
+ *
+ * @param W Pointer to the weight tensor. It is assumed to be a 2D tensor
+ * where the number of rows corresponds to the output features and the
+ * number of columns corresponds to the input features. Must not be NULL.
+ * @param X Pointer to the input tensor. It is assumed to be a 1D tensor
+ * representing the input features. Must not be NULL.
+ * @param Y Pointer to the output tensor. This tensor will store the result
+ * of the forward pass. Its length should match the number of output
+ * features. Must not be NULL.
+ * @param acc_buffer Pointer to an int32_t buffer used for intermediate
+ * accumulation during the matrix multiplication. Its size should be at
+ * least the length of the output tensor `Y`. Must not be NULL.
+ */
+void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t * acc_buffer, size_t acc_size) {
+    if(!W || !X || !Y || !acc_buffer || acc_size != Y->len) return;
     
     // raw int32 matrix-vector multiplication
     matrix_mul(W, X, acc_buffer);
 
     // apply ReLU to the int32 accumulators
-    activation_function(acc_buffer, OUT, relu_i8);
+    s_activation_func(acc_buffer, Y->len, relu_i8);
 
-    uint8_t bw   = eff_bitwidth_array(acc_buffer,OUT);
-    uint8_t ksh  = (bw > 8) ? ( bw - 8 ) : 0 ;
-    int8_t maxv = 0;
+    // get effective max bit width
+    uint8_t bw   = eff_bitwidth_array(acc_buffer, Y->len);
     
-    for(size_t r = 0; r < OUT; r++) {
-        int8_t v = clip_int8( shift_and_round32(acc_buffer[r], ksh));
-        Y->data[r] = v;
-        if(abs(v) > maxv) maxv = abs(v);
-    }
+    // get the bits to shift
+    uint8_t ksh  = (bw - CHAR_BIT) & -(bw > CHAR_BIT);
+
+    // shift and round by 32
+    s_shift_and_round_func(Y, Y->len, shift_and_round32, ksh);
+
+    // clip by at int8_t
+    s_clip_func(Y, Y->len, clip_int8);
+
+    // get the max abs output value in the layer 
+    int8_t maxv = s_max_abs_value(Y, Y->len);
 
     // combine the scales of weights and Activations 
     scale_combine(&Y->s, &W->s, &X->s);
@@ -48,19 +71,32 @@ void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t
     scale_shift(&Y->s, -(int8_t)ksh);
 
     if(maxv < T_LOW) {
-        s_scale_by_func(Y, OUT, upscale_4_3);
+        s_scale_by_func(Y, Y->len, upscale_4_3);
         scale_up(&Y->s);           
     } else if(maxv > T_HIGH) {
-        s_scale_by_func(Y, OUT, downscale_4_5);
+        s_scale_by_func(Y, Y->len, downscale_4_5);
         scale_down(&Y->s);  
     }
 
 #ifdef TENSOR_USE_NESTED
+    // roll up scale
     scale_rollup(&Y->s);
 #endif
     return;
 }
 
+/**
+ * @brief Applies an activation function to each element of an integer array.
+ *
+ * This function iterates through an array of 32-bit integers and applies a provided
+ * activation function to each element in place.
+ *
+ * @param acc Pointer to the beginning of the integer array. If NULL, the function returns immediately.
+ * @param len The number of elements in the array.
+ * @param func A function pointer to the activation function. This function should
+ * take an `int32_t` as input and return an `int32_t`. The type
+ * `Activation_i8_t` is assumed to be defined as `int32_t (*)(int32_t)`.
+ */
 static inline void s_activation_func(int32_t *acc, size_t len, Activation_i8_t func) {
     if(!acc) return;
     for (size_t i = 0; i < len; ++i) {
@@ -69,14 +105,101 @@ static inline void s_activation_func(int32_t *acc, size_t len, Activation_i8_t f
     return;
 }
 
-static inline void s_scale_by_func(int32_t * Y, size_t len, scale_by_t func) {
+/**
+ * @brief Scales each element of a tensor's data using a provided scaling function.
+ *
+ * This function iterates through the data array of a given tensor and applies a
+ * scaling function to each element in place.
+ *
+ * @param Y Pointer to the tensor structure. If NULL, the function returns immediately.
+ * The tensor structure is assumed to have a data member accessible as `Y->data`.
+ * @param len The number of elements in the tensor's data array.
+ * @param func A function pointer to the scaling function. This function should
+ * take an element from the tensor's data array as input and return
+ * the scaled value of the same type. The type `scale_by_t` is assumed
+ * to be defined appropriately for the data type of the tensor.
+ */
+static inline void s_scale_by_func(tensor_t * Y, size_t len, scale_by_t func) {
     if(!Y) return;
     for (size_t i = 0; i < len; ++i) {
-        Y[i] = func(Y[i]);
+        Y->data[i] = func(Y->data[i]);
     }
     return;
 }
 
+/**
+ * @brief Applies a clipping function to each element of a tensor's data.
+ *
+ * This function iterates through the data array of a given tensor and applies a
+ * clipping function to each element in place. Clipping typically limits values
+ * within a specific range.
+ *
+ * @param Y Pointer to the tensor structure. If NULL, the function returns immediately.
+ * The tensor structure is assumed to have a data member accessible as `Y->data`.
+ * @param len The number of elements in the tensor's data array.
+ * @param func A function pointer to the clipping function. This function should
+ * take an element from the tensor's data array as input and return
+ * the clipped value of the same type. The type `clip_t` is assumed
+ * to be defined appropriately for the data type of the tensor.
+ */
+static inline void s_clip_func(tensor_t * Y, size_t len, clip_t func) {
+    if(!Y) return;
+    for (size_t i = 0; i < len; ++i) {
+        Y->data[i] = func(Y->data[i]);
+    }
+    return;
+}
+
+/**
+ * @brief Applies a shift and rounding operation to each element of a tensor's data,
+ * casting the result to an 8-bit signed integer.
+ *
+ * This function iterates through the data array of a given tensor, applies a
+ * shift and rounding function to each element along with a shift parameter, and
+ * then casts the result to an `int8_t` before updating the element in place.
+ *
+ * @param Y Pointer to the tensor structure. If NULL, the function returns immediately.
+ * The tensor structure is assumed to have a data member accessible as `Y->data`,
+ * which is expected to store `int8_t` values after the operation.
+ * @param len The number of elements in the tensor's data array.
+ * @param func A function pointer to the shift and rounding function. This function
+ * should take an element from the tensor's data array and a `uint8_t`
+ * value as input, and return a value that can be cast to `int8_t`.
+ * The type `shift_round_t` is assumed to be defined appropriately.
+ * @param ksh An unsigned 8-bit integer value used as a shift parameter in the
+ * `func` function.
+ */
+static inline void s_shift_and_round_func(tensor_t * Y, size_t len, shift_round_t func, uint8_t ksh) {
+    if(!Y) return;
+    for (size_t i = 0; i < len; ++i) {
+        Y->data[i] = (int8_t)(func(Y->data[i], ksh));
+    }
+    return;
+}
+
+/**
+ * @brief Finds the maximum absolute value among the elements of a tensor's data.
+ *
+ * This function iterates through the data array of a given tensor and determines
+ * the largest absolute value present.
+ *
+ * @param Y Pointer to the tensor structure. If NULL, the function returns.
+ * The tensor structure is assumed to have a data member accessible as `Y->data`.
+ * @param len The number of elements in the tensor's data array.
+ * @return The maximum absolute value found in the tensor's data, as an 8-bit
+ * signed integer (`int8_t`). If the input tensor pointer `Y` is NULL,
+ * the behavior is undefined (it currently returns without a value).
+ * It is recommended to handle the NULL case by returning a default value
+ * like 0.
+ */
+static inline int8_t s_max_abs_value(tensor_t * Y, size_t len) {
+    if(!Y) return;
+    int8_t maxv = 0;
+    for (size_t i = 0; i < len; ++i) {
+        maxv = max(abs(Y->data[i]), maxv);
+    }
+    return;
+}
 
 /* single‑header alignment (Alg 3 lines 1–6) */
 static void align_scale(tensor_t *W, tensor_t *G_buffer)

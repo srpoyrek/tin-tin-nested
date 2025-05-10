@@ -2,6 +2,9 @@
 #define TT_UTILS_H
 #include <stdint.h>
 
+typedef int8_t (*clip_t)(int32_t x);
+
+
 static inline int8_t clip_int8(int32_t x)
 {
     if (x >  INT8_MAX) return  INT8_MAX;

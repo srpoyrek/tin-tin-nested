@@ -21,8 +21,7 @@ uint8_t eff_bitwidth_array(const int32_t *p, size_t n)
 {
     uint32_t maxa = 0;
     for (size_t i = 0; i < n; ++i) {
-        uint32_t a = (p[i] < 0) ? -(uint32_t)p[i] : (uint32_t)p[i];
-        if (a > maxa) maxa = a;
+        maxa = max(abs(p[i]), maxa);
     }
     return maxa ? 32u - __builtin_clz(maxa) : 1;
 }

@@ -59,11 +59,11 @@ uint32_t tt_motor_ae_forward(tt_motor_ae_model_t *m, const int8_t *in_data) {
     int32_t acc_buf[MOTOR_OUT];
 
     /* Layer 1 */
-    m->ops->dense_forward(&m->layer1.W, &m->input, &m->layer1.A, acc_buf);
+    m->ops->dense_forward(&m->layer1.W, &m->input, &m->layer1.A, acc_buf, MOTOR_OUT);
     /* Layer 2 */
-    m->ops->dense_forward(&m->layer2.W, &m->layer1.A, &m->layer2.A, acc_buf);
+    m->ops->dense_forward(&m->layer2.W, &m->layer1.A, &m->layer2.A, acc_buf, MOTOR_OUT);
     /* Layer 3 (reconstruction) */
-    m->ops->dense_forward(&m->layer3.W, &m->layer2.A, &m->layer3.A, acc_buf);
+    m->ops->dense_forward(&m->layer3.W, &m->layer2.A, &m->layer3.A, acc_buf, MOTOR_OUT);
 
     /* copy to output buffer */
     memcpy(m->out_buf, m->layer3.A.data, MOTOR_OUT);
