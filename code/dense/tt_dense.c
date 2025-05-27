@@ -1,7 +1,6 @@
 #include "tt_dense.h"
 #include "tt_math.h"
 #include "matrix.h"
-#include "tt_utils.h"
 #include "activations.h"
 #include <stdlib.h>
 #include <string.h>
@@ -49,12 +48,9 @@ void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t
     // apply ReLU to the int32 accumulators
     s_activation_func(acc_buffer, Y->len, relu_i8);
 
-    // get effective max bit width
-    uint8_t bw   = eff_bitwidth_array(acc_buffer, Y->len);
+    // get the bits to shift by effective max bit width
+    uint8_t ksh = eff_shift_bitwidth_array(acc_buffer, Y->len);
     
-    // get the bits to shift
-    uint8_t ksh  = (bw - CHAR_BIT) & -(bw > CHAR_BIT);
-
     // shift and round by 32
     s_shift_and_round_func(Y, Y->len, shift_and_round32, ksh);
 
