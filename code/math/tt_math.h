@@ -30,6 +30,13 @@ typedef int32_t (*shift_round_t)(int32_t x, uint8_t k);
  */
 typedef int8_t (*clip_t)(int32_t x);
 
+/* ==================== Basic Math Macros ==================== */
+
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define abs(x) ((x) < 0 ? -(x) : (x))
+
+/* ==================== Core Functions Used in Implementation ==================== */
+
 /**
  * @brief  Clip a 32-bit integer to the signed 8-bit range.
  *
@@ -39,7 +46,7 @@ typedef int8_t (*clip_t)(int32_t x);
  * @param[in]  x  The int32_t value to clip.
  * @return        The clipped int8_t value.
  */
-inline int8_t clip_int8(int32_t x) {
+static inline int8_t clip_int8(int32_t x) {
     if (x >  INT8_MAX) return  INT8_MAX;
     if (x < INT8_MIN) return INT8_MIN;
     return (int8_t)x;
@@ -56,7 +63,7 @@ inline int8_t clip_int8(int32_t x) {
  * @param[in]  k  Number of bits to shift (0–31). If zero, no shift is performed.
  * @return        The shifted and rounded int32_t result.
  */
-inline int32_t shift_and_round32(int32_t x, uint8_t k) {
+static inline int32_t shift_and_round32(int32_t x, uint8_t k) {
     if (k == 0) return x;
     int32_t off = 1 << (k - 1);
     if (x < 0) off = -off;
@@ -71,7 +78,7 @@ inline int32_t shift_and_round32(int32_t x, uint8_t k) {
  * @param[in]  x  The int8_t value to upscale.
  * @return        The upscaled and clipped int8_t result.
  */
-inline int8_t upscale_4_3(int8_t x) {
+static inline int8_t upscale_4_3(int8_t x) {
     return clip_int8(x + (x >> 2) + (x >> 4));
 }
 
@@ -95,17 +102,42 @@ inline int8_t downscale_4_5(int8_t x) {
  * @param[in] n  Number of elements in the array.
  * @return        Effective bits to shift.
  */
-inline uint8_t eff_shift_bitwidth_array(const int32_t *p, size_t n) {   
+static inline uint8_t eff_shift_bitwidth_array(const int32_t *p, size_t n) {   
+    if (!p || n == 0) return 0;
+    
+    uint32_t max_abs = 0;
+    for (size_t i = 0; i < n; ++i) {
+        uint32_t abs_val = (uint32_t)abs(p[i]);
+        if (abs_val > max_abs) max_abs = abs_val;
+    }
+    
     uint8_t width = 0;
+    while (max_abs > 0) {
+        max_abs >>= 1;
+        ++width;
+    }
+    
+    const uint8_t target_bits = CHAR_BIT - 1;  // 7 bits for int8_t magnitude
+    return (width > target_bits) ? (width - target_bits) : 0;
+}
+
+
+/**
+ * @brief Compute effective bit-width of a signed integer
+ */
+static inline uint8_t eff_bitwidth32(int32_t v)
+{
+    if (!v) return 1;
+    uint32_t a = (v < 0) ? -v : v;
+    return 32u - __builtin_clz(a);
+}
+#endif
+
+
+uint8_t eff_bitwidth_array(const int32_t *p, size_t n) {
     uint32_t maxa = 0;
     for (size_t i = 0; i < n; ++i) {
         maxa = max(abs(p[i]), maxa);
     }
-    while (maxa) {
-        maxa >>= 1;
-        ++width;
-    }
-    return (width - CHAR_BIT) & -(width > CHAR_BIT);
+    return maxa ? 32u - __builtin_clz(maxa) : 1;
 }
-
-#endif
