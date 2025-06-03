@@ -189,8 +189,7 @@ void tt_dense_train(tensor_t *W, const tensor_t *X, const tensor_t *err_next, te
     uint8_t b_w = eff_bitwidth_array(W->data, W->len);
     uint8_t b_g = eff_bitwidth_array(G_buffer->data, G_buffer->len);
 
-    int8_t target_bitwidth = (int8_t)b_w - MARGIN;
-    int8_t shift_adj = (int8_t)b_g - target_bitwidth;
+    int8_t shift_adj = (int8_t)b_g - (int8_t)b_w + MARGIN;
 
      if (shift_adj > 0) {
         s_apply_shift_round_clip(G_buffer, shift_and_round32, shift_adj, clip_int8);
@@ -202,7 +201,6 @@ void tt_dense_train(tensor_t *W, const tensor_t *X, const tensor_t *err_next, te
         int16_t new_weight = (int16_t)W->data[i] - G_buffer->data[i];
         W->data[i] = clip_int8(new_weight);
     }
-
 
     // Weight renormalization for numerical stability
     s_dynamic_scale_adjustement(W);
