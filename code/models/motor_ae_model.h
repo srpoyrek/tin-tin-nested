@@ -33,7 +33,7 @@
         enum { NAME ## _WEIGHTS_SIZE = (IN) *(OUT),                  \
                NAME ## _ACTIVATIONS_SIZE = (OUT)};                         \
         typedef struct {                                            \
-            int8_t W_buf[(IN)*(OUT)]; /* weight storage */        \
+            int8_t W_buf[(IN) * (OUT)]; /* weight storage */        \
             tensor_t W;           /* tensor view of W_buf*/   \
             int8_t A_buf[(OUT)];  /* activation storage */    \
             tensor_t A;           /* tensor view of A_buf*/   \
@@ -54,9 +54,8 @@ DECLARE_DENSE_LAYER(LAYER3, MOTOR_H2, MOTOR_OUT)
 DECLARE_INOUT_LAYER(INPUT, MOTOR_IN)
 DECLARE_INOUT_LAYER(OUTPUT, MOTOR_OUT)
 
-
 typedef struct {
-    const TensorBackend_t *ops; /* TT vs nested‑TT vs 4‑bit etc. */
+    const TensorBackend_t* ops; /* TT vs nested‑TT vs 4‑bit etc. */
 
     /* I/O buffers and views */
     INPUT_t input;
@@ -69,9 +68,8 @@ typedef struct {
     int32_t rng;
 } tt_motor_ae_model_t;
 
-
-void motor_ae_model_init(void * model, const TensorBackend_t *backend, uint32_t seed);
-uint32_t motor_ae_model_forward(void * model, const tensor_t *x);
-void motor_ae_model_backward(void * model, const tensor_t *x);
+void motor_ae_model_init(void* model, const TensorBackend_t* backend, uint32_t seed);
+uint32_t motor_ae_model_forward(void* model, const tensor_t* x);
+void motor_ae_model_backward(void* model, const tensor_t* x);
 
 #endif // TT_MOTOR_AE_MODEL_H

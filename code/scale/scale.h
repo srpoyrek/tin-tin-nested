@@ -33,36 +33,36 @@ typedef _scale_t scale_t;
 #endif
 
 // scale operations
-void scale_combine(scale_t *dst, const scale_t *a, const scale_t *b);
+void scale_combine(scale_t* dst, const scale_t* a, const scale_t* b);
 
 /**
  * @brief shifts scales
  * @param h pointer of the scale to shift
  * @param k shift by
  */
-void scale_shift(scale_t *h, int8_t k);
+void scale_shift(scale_t* h, int8_t k);
 
 /**
  * @brief scales up
  * increments by one
  * @param h pointer of the scale to up
  */
-void scale_up(scale_t *h);
+void scale_up(scale_t* h);
 
 /**
  * @brief scales down
  * decrements by one
  * @param h pointer of the scale to down
  */
-void scale_down(scale_t *h);
+void scale_down(scale_t* h);
 
 /**
  * @brief copy scale
  * @param dst ptr to the scale to copy
  * @param src ptr to the scale to copy to.
  */
-void scale_copy(scale_t *dst, const scale_t *src);
+void scale_copy(scale_t* dst, const scale_t* src);
 
 #ifdef TENSOR_USE_NESTED
-void scale_rollup(scale_t *h);
+void scale_rollup(scale_t* h);
 #endif
