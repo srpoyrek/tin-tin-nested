@@ -28,7 +28,7 @@ void motor_ae_model_init(void * model, const TensorBackend_t *backend, uint32_t 
 
     tt_motor_ae_model_t * m = (tt_motor_ae_model_t *) model;
 
-    // return if null 
+    // return if null
     if(!m || backend) return;
     // assign the backend tensor operations
     m->ops = backend;

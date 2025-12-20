@@ -1,0 +1,58 @@
+####################################
+# Bazel
+####################################
+bazel-*
+.bazelrc.user
+.bazelrc.local
+bazel-out/
+bazel-bin/
+bazel-testlogs/
+bazel-workspace/
+
+####################################
+# VS Code
+####################################
+.vscode/
+.history/
+*.code-workspace
+
+####################################
+# LaTeX
+####################################
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+
+####################################
+# LaTeX build dirs
+####################################
+build/
+latexmk/
+_out/
+
+####################################
+# OS / Editor noise
+####################################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+####################################
+# Python cache (for pre-commit)
+####################################
+__pycache__/
+*.pyc
+*.pyo

@@ -6,4 +6,3 @@ const ModelBackend_t tt_motor_model_backend = {
     .model_forward  = motor_ae_model_forward,
     .model_backward = motor_ae_model_backward
 };
-

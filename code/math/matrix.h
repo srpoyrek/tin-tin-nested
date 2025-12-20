@@ -9,6 +9,6 @@
 #define _MATRIX_H_
 #include "tt_types.h"
 
-static inline void matrix_mul( const tensor_t *A, const tensor_t *X, int32_t *acc_buffer);
+static void matrix_mul( const tensor_t *A, const tensor_t *X, int32_t *acc_buffer);
 
 #endif // TT_MATMUL_ACC_H

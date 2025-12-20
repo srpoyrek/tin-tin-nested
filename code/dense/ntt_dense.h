@@ -10,10 +10,10 @@ void ntt_dense_forward(const tensor_t *w,
                        tensor_t       *y);
 
 void ntt_dense_train(tensor_t *w,
-                    const tensor_t *x,
-                    const tensor_t *error_next,
-                    tensor_t *error_prev,
-                    tensor_t *buffer);  /* output */
+                     const tensor_t *x,
+                     const tensor_t *error_next,
+                     tensor_t *error_prev,
+                     tensor_t *buffer); /* output */
 
 #endif
 #endif

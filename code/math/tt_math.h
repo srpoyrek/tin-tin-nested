@@ -1,7 +1,7 @@
 #ifndef TT_MATH_H
 #define TT_MATH_H
 #include "tt_types.h"
-#include<limits.h>
+#include <limits.h>
 /**
  * @typedef scale_by_t
  * @brief Function pointer type for scaling an 8-bit value.
@@ -47,7 +47,7 @@ typedef int8_t (*clip_t)(int32_t x);
  * @return        The clipped int8_t value.
  */
 static inline int8_t clip_int8(int32_t x) {
-    if (x >  INT8_MAX) return  INT8_MAX;
+    if (x >  INT8_MAX) return INT8_MAX;
     if (x < INT8_MIN) return INT8_MIN;
     return (int8_t)x;
 }
@@ -102,21 +102,21 @@ inline int8_t downscale_4_5(int8_t x) {
  * @param[in] n  Number of elements in the array.
  * @return        Effective bits to shift.
  */
-static inline uint8_t eff_shift_bitwidth_array(const int32_t *p, size_t n) {   
+static inline uint8_t eff_shift_bitwidth_array(const int32_t *p, size_t n) {
     if (!p || n == 0) return 0;
-    
+
     uint32_t max_abs = 0;
     for (size_t i = 0; i < n; ++i) {
         uint32_t abs_val = (uint32_t)abs(p[i]);
         if (abs_val > max_abs) max_abs = abs_val;
     }
-    
+
     uint8_t width = 0;
     while (max_abs > 0) {
         max_abs >>= 1;
         ++width;
     }
-    
+
     const uint8_t target_bits = CHAR_BIT - 1;  // 7 bits for int8_t magnitude
     return (width > target_bits) ? (width - target_bits) : 0;
 }

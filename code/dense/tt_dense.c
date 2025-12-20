@@ -19,10 +19,10 @@
 /* ==================== Constants ==================== */
 
 /** @brief Learning rate as right shift: LR = 1/256 = 2^(-8) */
-#define LR_SHIFT 8    
+#define LR_SHIFT 8
 
 /** @brief Bit-width safety margin for gradient scaling (Algorithm 3, line 10) */
-#define MARGIN   2    
+#define MARGIN   2
 
 /** @brief Lower threshold for dynamic range adjustment: 2^(CHAR_BIT-1)/4 = 32 */
 #define T_LOW   (2 ^ (CHAR_BIT - 1) / 4)
@@ -53,7 +53,7 @@ static void s_dynamic_scale_adjustment(tensor_t *T);
  * @param Y Input tensor
  * @return Maximum absolute value as int8_t
  */
-static inline int8_t s_find_max_abs_value(const tensor_t *Y);
+static int8_t s_find_max_abs_value(const tensor_t *Y);
 
 /**
  * @brief Apply shift, round, and clip operations to tensor
@@ -62,7 +62,7 @@ static inline int8_t s_find_max_abs_value(const tensor_t *Y);
  * @param ksh Shift amount
  * @param cfunc Clip function
  */
-static inline void s_apply_shift_round_clip(tensor_t *Y, shift_round_t sfunc, uint8_t ksh, clip_t cfunc);
+static void s_apply_shift_round_clip(tensor_t *Y, shift_round_t sfunc, uint8_t ksh, clip_t cfunc);
 
 /**
  * @brief Apply activation function to int32 buffer
@@ -70,14 +70,14 @@ static inline void s_apply_shift_round_clip(tensor_t *Y, shift_round_t sfunc, ui
  * @param len Number of elements
  * @param func Activation function
  */
-static inline void s_apply_activation(int32_t *buffer, size_t len, Activation_i8_t func);
+static void s_apply_activation(int32_t *buffer, size_t len, Activation_i8_t func);
 
 /**
  * @brief Apply scaling function to tensor
  * @param Y Target tensor (modified in-place)
  * @param func Scaling function
  */
-static inline void s_apply_scale_by(tensor_t *Y, scale_by_t func);
+static void s_apply_scale_by(tensor_t *Y, scale_by_t func);
 
 /**
  * @brief Forward pass for dense layer: Y = ReLU(W * X)
@@ -87,24 +87,24 @@ static inline void s_apply_scale_by(tensor_t *Y, scale_by_t func);
  *          3. Bit-width analysis and shifting
  *          4. Scale combination and adjustment
  *          5. Dynamic range optimization
- * 
+ *
  * @param W Weight tensor (rows=output_size, cols=input_size, flattened)
  * @param X Input activation tensor
  * @param Y Output activation tensor (result)
  * @param acc_buffer Accumulation buffer for intermediate int32 results
  * @param acc_size Size of accumulation buffer (must equal Y->len)
- * 
+ *
  * @pre W, X, Y, acc_buffer must not be NULL
  * @pre acc_size must equal Y->len
  * @pre W->len must equal (Y->len * X->len)
- * 
+ *
  * @post Y contains quantized activations with updated scale
  */
 void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t * acc_buffer, size_t acc_size) {
 
     // Input validation
     if(!W || !X || !Y || !acc_buffer || acc_size != Y->len) return;
-    
+
     // raw int32 matrix-vector multiplication
     matrix_mul(W, X, acc_buffer);
 
@@ -118,13 +118,13 @@ void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t
     // shift and round by 32 and clip by int8_t
     s_apply_shift_round_clip(Y, shift_and_round32, ksh, clip_int8);
 
-    // combine the scales of weights and Activations 
+    // combine the scales of weights and Activations
     scale_combine(&Y->s, &W->s, &X->s);
 
     // shift the scale of Y
     scale_shift(&Y->s, -(int8_t)ksh);
 
-    // dynamic range scale adjustment 
+    // dynamic range scale adjustment
     s_dynamic_scale_adjustement(Y);
 
 #ifdef TENSOR_USE_NESTED
@@ -144,22 +144,22 @@ void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t
  *          5. SGD weight update
  *          6. Weight renormalization
  *          7. Error backpropagation
- * 
+ *
  * @param W Weight tensor (modified in-place)
  * @param X Input activation tensor
  * @param err_next Error signal from next layer
  * @param err_prev Error signal to previous layer (output)
  * @param G_buffer Gradient buffer (temporary storage)
- * 
+ *
  * @pre All pointers must not be NULL
  * @pre G_buffer->len must equal W->len
  * @pre W dimensions: (err_next->len × X->len)
- * 
+ *
  * @post W contains updated weights
  * @post err_prev contains error for previous layer
  */
 void tt_dense_train(tensor_t *W, const tensor_t *X, const tensor_t *err_next, tensor_t *err_prev, tensor_t *G_buffer) {
-    
+
     // Input validation
     if(!W || !X || !err_next || !err_prev || !G_buffer) return;
     if(G_buffer->len != W->len) return;
@@ -182,7 +182,7 @@ void tt_dense_train(tensor_t *W, const tensor_t *X, const tensor_t *err_next, te
     // shift the scale
     scale_shift(&G_buffer->s, -LR_SHIFT);
 
-    // Align scales between weights and gradients 
+    // Align scales between weights and gradients
     align_scale(W, G_buffer);
 
     // Bit-width margin adjustment
@@ -229,17 +229,17 @@ void tt_dense_train(tensor_t *W, const tensor_t *X, const tensor_t *err_next, te
  */
 static void s_dynamic_scale_adjustment(tensor_t *T) {
     if (!T) return;
-    
+
     int8_t max_val = s_find_max_abs_value(T);
-    
+
     if (max_val > T_HIGH) {
         // Values too large - scale down by factor ~0.8
         s_apply_scale_by(T, downscale_4_5);
-        scale_down(&T->s);   
+        scale_down(&T->s);
     } else if (max_val < T_LOW) {
         // Values too small - scale up by factor ~1.33
         s_apply_scale_by(T, upscale_4_3);
-        scale_up(&T->s);   
+        scale_up(&T->s);
     }
 }
 
@@ -250,7 +250,7 @@ static void s_dynamic_scale_adjustment(tensor_t *T) {
  */
 static void align_scale(tensor_t *W, tensor_t *G_buffer) {
     if (!W || !G_buffer) return;
-    
+
     // Calculate scale differences
     int8_t dS = W->s.S - G_buffer->s.S;
     int8_t dU = W->s.U - G_buffer->s.U;
@@ -267,7 +267,7 @@ static void align_scale(tensor_t *W, tensor_t *G_buffer) {
     } else if (dS < 0) {
         // Right shift gradients with rounding
         dS = -dS;
-        s_apply_shift_round_clip(G_buffer, shift_and_round32, 
+        s_apply_shift_round_clip(G_buffer, shift_and_round32,
                                 dS, clip_int8);
         G_buffer->s.S -= dS;
     }
@@ -277,7 +277,7 @@ static void align_scale(tensor_t *W, tensor_t *G_buffer) {
         s_apply_scale_by(G_buffer, upscale_4_3);
         G_buffer->s.U++;
     }
-    
+
     // Align down-scale counts
     while (dD-- > 0) {
         s_apply_scale_by(G_buffer, downscale_4_5);
@@ -292,13 +292,16 @@ static void align_scale(tensor_t *W, tensor_t *G_buffer) {
  * @param len Number of elements
  * @param func Activation function pointer
  */
-static inline void s_apply_activation(int32_t *buffer, size_t len, 
+static void s_apply_activation(int32_t *buffer, size_t len,
                                      Activation_i8_t func) {
     if (!buffer || !func) return;
-    
-    for (size_t i = 0; i < len; ++i) {
+
+    for (size_t i = 0; i < len; ++i)
+    {
         buffer[i] = (int32_t)func((int8_t)buffer[i]);
     }
+
+    return;
 }
 
 /**
@@ -306,9 +309,9 @@ static inline void s_apply_activation(int32_t *buffer, size_t len,
  * @param Y Input tensor
  * @return Maximum absolute value, or 0 if Y is NULL
  */
-static inline int8_t s_find_max_abs_value(const tensor_t *Y) {
+static int8_t s_find_max_abs_value(const tensor_t *Y) {
     if (!Y || !Y->data) return 0;
-    
+
     int8_t max_val = 0;
     for (size_t i = 0; i < Y->len; ++i) {
         int8_t abs_val = abs(Y->data[i]);
@@ -324,10 +327,10 @@ static inline int8_t s_find_max_abs_value(const tensor_t *Y) {
  * @param ksh Number of bits to shift
  * @param cfunc Clipping function
  */
-static inline void s_apply_shift_round_clip(tensor_t *Y, shift_round_t sfunc,
+static void s_apply_shift_round_clip(tensor_t *Y, shift_round_t sfunc,
                                            uint8_t ksh, clip_t cfunc) {
     if (!Y || !Y->data || !sfunc || !cfunc) return;
-    
+
     for (size_t i = 0; i < Y->len; ++i) {
         int32_t shifted = sfunc((int32_t)Y->data[i], ksh);
         Y->data[i] = cfunc(shifted);
@@ -340,9 +343,9 @@ static inline void s_apply_shift_round_clip(tensor_t *Y, shift_round_t sfunc,
  * @param len Number of elements to process
  * @param func Scaling function pointer
  */
-static inline void s_apply_scale_by(tensor_t *Y, scale_by_t func) {
+static void s_apply_scale_by(tensor_t *Y, scale_by_t func) {
     if (!Y || !Y->data || !func) return;
-    
+
     for (size_t i = 0; i < Y->len; ++i) {
         Y->data[i] = func(Y->data[i]);
     }

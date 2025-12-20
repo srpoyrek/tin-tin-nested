@@ -39,7 +39,7 @@ _minted-*/
 *.xdv
 
 # other temp files
-*~ 
+*~
 *.bak
 *.backup
 *.tmp

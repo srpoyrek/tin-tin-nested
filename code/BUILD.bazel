@@ -1,0 +1,9 @@
+cc_binary(
+    name = "app",
+    srcs = ["tin_main.c"],
+    copts = [
+        "-mcpu=cortex-m4",
+        "-mthumb",
+        "-ffreestanding",
+    ],
+)

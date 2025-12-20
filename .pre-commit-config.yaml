@@ -1,0 +1,25 @@
+repos:
+  # ------------------------------
+  # General hygiene
+  # ------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: mixed-line-ending
+
+  # ------------------------------
+  # Local Uncrustify (correct way)
+  # ------------------------------
+  - repo: local
+    hooks:
+      - id: uncrustify
+        name: uncrustify (local)
+        entry: uncrustify
+        language: system
+        types: [c, header]
+        args: ["-c", ".uncrustify.cfg", "--replace", "--no-backup"]

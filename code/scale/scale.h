@@ -1,4 +1,3 @@
-#include<stdint.h>
 /**
  * @file scale.h
  * @brief contains the header and apis for scale operations and definitions
@@ -8,14 +7,16 @@
  * @date May 7, 2025
  * @license MIT
  */
+#include <stdint.h>
 
-typedef struct {
-    int8_t S;   /* power‑of‑two shifts (+ = <<,  – = >>) */
-    int8_t U;   /* # of up‑scales   (× 4⁄3) */
-    int8_t D;   /* # of down‑scales (× 4⁄5) */
+typedef struct
+{
+    int8_t S;   /* Power-of-two shifts: scale × 2^S */
+    int8_t U;   /* Up-scales: scale × (4/5)^U */
+    int8_t D;   /* Down-scales: scale × (3/4)^D */
 } _scale_t;
 
- /**
+/**
  * @class scale
  * @brief scale class contians Shift, Up, Down Counter
  *
@@ -32,12 +33,36 @@ typedef _scale_t scale_t;
 #endif
 
 // scale operations
-static inline void scale_combine(scale_t *dst, const scale_t *a, const scale_t *b);
-static inline void scale_shift(scale_t *h, int8_t k);
-static inline void scale_up(scale_t *h);
-static inline void scale_down(scale_t *h);
+void scale_combine(scale_t *dst, const scale_t *a, const scale_t *b);
+
+/**
+ * @brief shifts scales
+ * @param h pointer of the scale to shift
+ * @param k shift by
+ */
+void scale_shift(scale_t *h, int8_t k);
+
+/**
+ * @brief scales up
+ * increments by one
+ * @param h pointer of the scale to up
+ */
+void scale_up(scale_t *h);
+
+/**
+ * @brief scales down
+ * decrements by one
+ * @param h pointer of the scale to down
+ */
+void scale_down(scale_t *h);
+
+/**
+ * @brief copy scale
+ * @param dst ptr to the scale to copy
+ * @param src ptr to the scale to copy to.
+ */
+void scale_copy(scale_t *dst, const scale_t *src);
 
 #ifdef TENSOR_USE_NESTED
-static inline void scale_rollup(scale_t *h);
+void scale_rollup(scale_t *h);
 #endif
-
