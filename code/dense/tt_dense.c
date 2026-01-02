@@ -100,37 +100,50 @@ static void s_apply_scale_by(tensor_t *Y, scale_by_t func);
  *
  * @post Y contains quantized activations with updated scale
  */
-void tt_dense_forward(const tensor_t *W, const tensor_t *X, tensor_t *Y, int32_t * acc_buffer, size_t acc_size) {
+void tt_dense_forward(const tensor_forward_t *ctx, const tensor_cfg_t * const cfg)
+{
 
     // Input validation
-    if(!W || !X || !Y || !acc_buffer || acc_size != Y->len) return;
+    if((!ctx)
+    || (!cfg)
+    || (!ctx->W)
+    || (!ctx->X)
+    || (!ctx->Y)
+    || (!ctx->acc_buffer)
+    || (!cfg->matrix_mul_func)
+    || (!cfg->fd_activation_func)
+    || (!cfg->apply_activation_func))
+    {
+        return;
+    }
 
-    // raw int32 matrix-vector multiplication
-    matrix_mul(W, X, acc_buffer);
+    // matrix-vector multiplication
+    cfg->matrix_mul_func(ctx->W, ctx->X, ctx->acc_buffer);
 
-    // apply ReLU to the int32 accumulators
-    s_apply_activation(acc_buffer, Y->len, relu_i8);
+    // apply ReLU to the accumulators
+    cfg->apply_activation_func(ctx->acc_buffer, ctx->Y->len, cfg->fd_activation_func);
 
     // get the bits to shift by effective max bit width
-    uint8_t max_bitwidth = eff_bitwidth_array(acc_buffer,Y->len);
+    uint8_t max_bitwidth = eff_bitwidth_array(ctx->acc_buffer, ctx->Y->len);
     uint8_t ksh = (max_bitwidth > TARGET_BITS) ? (max_bitwidth - TARGET_BITS) : 0;
 
     // shift and round by 32 and clip by int8_t
-    s_apply_shift_round_clip(Y, shift_and_round32, ksh, clip_int8);
+    s_apply_shift_round_clip(ctx->Y, shift_and_round32, ksh, clip_int8);
 
     // combine the scales of weights and Activations
-    scale_combine(&Y->s, &W->s, &X->s);
+    scale_combine(&ctx->Y->s, &ctx->W->s, &ctx->X->s);
 
     // shift the scale of Y
-    scale_shift(&Y->s, -(int8_t)ksh);
+    scale_shift(&ctx->Y->s, -(int8_t)ksh);
 
     // dynamic range scale adjustment
-    s_dynamic_scale_adjustement(Y);
+    s_dynamic_scale_adjustment(ctx->Y);
 
 #ifdef TENSOR_USE_NESTED
     // roll up scale
-    scale_rollup(&Y->s);
+    scale_rollup(&ctx->Y->s);
 #endif
+
     return;
 }
 
@@ -203,8 +216,7 @@ void tt_dense_train(tensor_t *W, const tensor_t *X, const tensor_t *err_next, te
     }
 
     // Weight renormalization for numerical stability
-    s_dynamic_scale_adjustement(W);
-
+    s_dynamic_scale_adjustment(W);
     // Compute error for previous layer (W^T * err_next)
     for (size_t c = 0; c < IN; ++c) {
         int32_t acc = 0;
@@ -293,7 +305,7 @@ static void align_scale(tensor_t *W, tensor_t *G_buffer) {
  * @param func Activation function pointer
  */
 static void s_apply_activation(int32_t *buffer, size_t len,
-                                     Activation_i8_t func) {
+                                     activation_t func) {
     if (!buffer || !func) return;
 
     for (size_t i = 0; i < len; ++i)

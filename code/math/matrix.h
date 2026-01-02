@@ -1,14 +1,39 @@
 /**
  * @file matrix.h
- * @brief mat multiplication in int32_t with accumulator and other operations
+ * @brief Matrix multiplication APIs
  * @author Shreyas Poyrekar
  * @date May 7, 2025
- * @license MIT
  */
-#ifndef _MATRIX_H_
-#define _MATRIX_H_
+
+#ifndef MATRIX_H
+#define MATRIX_H
+
 #include "tt_types.h"
 
-static void matrix_mul( const tensor_t* A, const tensor_t* X, int32_t* acc_buffer);
+/**
+ * @brief Function pointer for matrix multiplication
+ *
+ * @param W Weight tensor (flattened 2D matrix)
+ * @param X Input tensor (1D vector or batch of vectors)
+ * @param acc_buffer Output buffer (int32_t array)
+ *
+ * Dimensions must be known externally:
+ * - W: (OUT × IN) flattened
+ * - X: (IN) or (BATCH × IN) flattened
+ * - acc_buffer: (OUT) or (BATCH × OUT)
+ */
+typedef void (*matrix_mul_func)(const tensor_t *W, const tensor_t *X, void *acc_buffer);
 
-#endif // TT_MATMUL_ACC_H
+/**
+ * @brief Matrix-vector multiply: y = W × x
+ *
+ * Expects:
+ * - W->data: int8_t[OUT × IN] flattened row-major
+ * - X->data: uint8_t[IN] or int8_t[IN]
+ * - acc_buffer: int32_t[OUT]
+ *
+ * Dimensions: OUT = W->len / X->len
+ */
+void matrix_mul_1di8(const tensor_t *W, const tensor_t *X, void *acc_buffer);
+
+#endif /* MATRIX_H */

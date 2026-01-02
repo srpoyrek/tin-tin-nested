@@ -4,9 +4,8 @@
 #include <math.h>
 #include <stdint.h>
 
-typedef int8_t (*Activation_i8_t)(int8_t x);
+typedef void (*activation_func_t)(const void *x);
 
-typedef float (*Activation_flt_t)(float x);
 /*
  * Activation functions for both integer and floating-point use.
  * Static inline for zero overhead.
@@ -17,9 +16,16 @@ typedef float (*Activation_flt_t)(float x);
 /**
  * ReLU activation: max(0, x)
  */
-static inline int8_t relu_i8(
-    int8_t x) {
-    return x < 0 ? 0 : x;
+static inline void relu_i8(
+    const void *x)
+{
+    if (x != NULL)
+    {
+        int8_t val = *(const int8_t*)x;
+        *(int8_t*)x = val < 0 ? 0 : val;
+    }
+
+    return;
 }
 
 /**

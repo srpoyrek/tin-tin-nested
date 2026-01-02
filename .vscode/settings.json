@@ -14,5 +14,6 @@
         "stdio.h": "c",
         "tt_math.h": "c",
         "motor_ae_model.h": "c"
-    }
+    },
+    "chat.extensionUnification.enabled": true
 }

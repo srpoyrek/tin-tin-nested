@@ -1,25 +1,75 @@
+/**
+ * @file tt_dense.h
+ * @brief Dense layer forward and training passes
+ * @author Shreyas Poyrekar
+ * @date May 7, 2025
+ */
+
 #ifndef TT_DENSE_H
 #define TT_DENSE_H
+
 #include "tt_types.h"
+#include "matrix.h"
 
 /**
- * @brief Forward pass for dense layer: y = ReLU(W · x)
- * @param W Weight tensor (2D flattened as 1D)
- * @param X Input activation tensor
- * @param Y Output activation tensor
- * @param acc_buffer Accumulation buffer for intermediate calculations
- * @param acc_size Size of accumulation buffer (must equal Y->len)
+ * @brief Single-element activation function
  */
-void tt_dense_forward(const tensor_t* W, const tensor_t* X, tensor_t* Y, int32_t* acc_buffer, size_t acc_size);
+typedef int8_t (*activation_func_t)(int8_t x);
 
 /**
- * @brief Training pass for dense layer with backward propagation
- * @param W Weight tensor (updated in-place)
- * @param X Input activation tensor
- * @param err_next Error signal from next layer
- * @param err_prev Error signal to previous layer (output)
- * @param G_buffer Gradient buffer for weight updates
+ * @brief Apply activation to int32 buffer
  */
-void tt_dense_train(tensor_t* W, const tensor_t* X, const tensor_t* err_next, tensor_t* err_prev, tensor_t* G_buffer);
+typedef void (*apply_activation_t)(int32_t *buffer, size_t len, activation_func_t func);
 
-#endif // TT_DENSE_H
+/**
+ * @brief Configuration for dense layer operations
+ */
+typedef struct {
+    matrix_mul_func matrix_mul_func;          /**< Matrix multiply callback */
+    activation_func_t fd_activation_func;     /**< Element-wise activation (forward) */
+    apply_activation_t apply_activation_func; /**< Batch activation applier */
+} tensor_cfg_t;
+
+/**
+ * @brief Forward pass context
+ */
+typedef struct
+{
+    const tensor_t *W;       /**< Weights (OUT × IN) */
+    const tensor_t *X;       /**< Input (IN) */
+    tensor_t *Y;             /**< Output (OUT) */
+    void *acc_buffer;        /**< Accumulator int32_t[OUT] */
+} tensor_forward_t;
+
+/**
+ * @brief Training pass context
+ */
+typedef struct
+{
+    tensor_t *W;                /**< Weights (OUT × IN) - modified in-place */
+    const tensor_t *X;          /**< Input activations (IN) */
+    const tensor_t *err_next;   /**< Error from next layer (OUT) */
+    tensor_t *err_prev;         /**< Error to previous layer (IN) - output */
+    tensor_t *G_buffer;         /**< Gradient buffer (OUT × IN) - temp storage */
+} tensor_train_t;
+
+/**
+ * @brief Forward pass: Y = activation(W × X)
+ *
+ * @param ctx Forward context with all tensors and buffers
+ * @param cfg Configuration with function callbacks
+ */
+void tt_dense_forward(const tensor_forward_t *ctx, const tensor_cfg_t *cfg);
+
+/**
+ * @brief Training pass: compute gradients and backprop error
+ *
+ * @param ctx Training context with all tensors
+ * @param cfg Configuration with function callbacks
+ *
+ * @post ctx->W is updated with gradient descent
+ * @post ctx->err_prev contains backpropagated error
+ */
+void tt_dense_train(const tensor_train_t *ctx, const tensor_cfg_t *cfg);
+
+#endif /* TT_DENSE_H */
